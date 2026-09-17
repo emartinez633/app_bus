@@ -1,0 +1,58 @@
+name: app_fusionada
+description: "Sistema Inteligente de Accesibilidad y Monitoreo de Transporte Público."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Diseño e Interfaz
+  cupertino_icons: ^1.0.8
+  shimmer: ^3.0.0
+  
+  # Hardware y Sensores (Módulo NFC Bus)
+  nfc_manager: ^4.1.1
+  nfc_manager_ndef: ^1.1.0
+  flutter_tts: ^4.2.5
+  mobile_scanner: ^7.2.0
+
+  # Red y Comunicación (Módulo Transporte Frontend)
+  http: ^1.6.0
+  socket_io_client: ^3.1.4
+  connectivity_plus: ^7.0.0
+
+  # Almacenamiento Local y Persistencia
+  flutter_secure_storage: ^10.0.0
+  shared_preferences: ^2.5.5
+  sqflite: ^2.4.2
+  path: ^1.9.1
+
+  # Utilidades y Herramientas
+  qr_flutter: ^4.1.0
+  intl: ^0.20.2
+  uuid: ^4.5.3
+  crypto: ^3.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  # Aquí agregaremos las rutas de los assets más adelante
+  # assets:
+  #   - assets/icon/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#09155b"
+  adaptive_icon_foreground: "assets/icon/app_icon_front.png"
