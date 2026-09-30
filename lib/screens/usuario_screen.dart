@@ -3,9 +3,10 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:nfc_manager/nfc_manager.dart';
 
 class UsuarioScreen extends StatefulWidget {
-  final Map<String, dynamic> usuario; // Recibimos los datos del Login
+  final Map<String, dynamic> usuario; 
 
   const UsuarioScreen({super.key, required this.usuario});
 
@@ -20,11 +21,10 @@ class _UsuarioScreenState extends State<UsuarioScreen> {
 
   final ApiService _apiService = ApiService();
 
-  // Función que se comunica con Node.js
   Future<void> _procesarRecarga(double monto) async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Procesando recarga...')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Procesando recarga...'))
+    );
 
     final respuesta = await _apiService.recargarSaldo(
       widget.usuario['correo'],
@@ -39,7 +39,6 @@ class _UsuarioScreenState extends State<UsuarioScreen> {
         ),
       );
     } else {
-      // Si el servidor confirma la recarga, actualizamos la pantalla
       setState(() {
         _saldoActual = (respuesta['nuevoSaldo']).toDouble();
       });
@@ -52,8 +51,7 @@ class _UsuarioScreenState extends State<UsuarioScreen> {
     }
   }
 
-Future<void> _mostrarFormularioEstudiante() async {
-    // 1. Avisamos al usuario que estamos descargando el catálogo
+  Future<void> _mostrarFormularioEstudiante() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Cargando catálogo de escuelas...'), duration: Duration(seconds: 1)),
     );
@@ -65,11 +63,11 @@ Future<void> _mostrarFormularioEstudiante() async {
     final curpCtrl = TextEditingController();
     final matriculaCtrl = TextEditingController();
     String escuelaSeleccionada = ''; 
-    String? errorValidacion; // <--- Nueva variable para guardar el error
+    String? errorValidacion; 
 
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder( // <--- Permite actualizar el diálogo sin cerrar
+      builder: (context) => StatefulBuilder( 
         builder: (context, setStateDialog) {
           return AlertDialog(
             title: const Text('Verificación de Estudiante'),
@@ -77,7 +75,6 @@ Future<void> _mostrarFormularioEstudiante() async {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Si hay un error, dibujamos un cuadro rojo llamativo
                   if (errorValidacion != null)
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -130,7 +127,6 @@ Future<void> _mostrarFormularioEstudiante() async {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF09155B)),
                 onPressed: () {
-                  // Usamos setStateDialog para mostrar el error y detener el envío
                   if (nombreCtrl.text.isEmpty || escuelaSeleccionada.isEmpty || matriculaCtrl.text.isEmpty) {
                     setStateDialog(() => errorValidacion = 'Por favor, llena todos los campos.');
                     return;
@@ -149,7 +145,6 @@ Future<void> _mostrarFormularioEstudiante() async {
       ),
     );
 
-    // 4. Si pasó la validación, enviamos al backend
     if (confirmar == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verificando datos...')));
       
@@ -166,22 +161,60 @@ Future<void> _mostrarFormularioEstudiante() async {
     }
   }
 
-  // Descarga el catálogo de universidades desde la API pública
+  Future<void> _iniciarEscaneoNFC() async {
+    bool isAvailable = await NfcManager.instance.isAvailable();
+    if (!isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor enciende el NFC en los ajustes de tu teléfono'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Acerca tu celular a la etiqueta del autobús...', style: TextStyle(fontSize: 16)), backgroundColor: Color(0xFF09155B), duration: Duration(seconds: 5)),
+    );
+
+    NfcManager.instance.startSession(
+      pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
+      onDiscovered: (NfcTag tag) async {
+      NfcManager.instance.stopSession();
+      
+      final nfcData = tag.data;
+      final tagId = nfcData.toString(); 
+      
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Procesando pago...')));
+
+      final respuesta = await _apiService.registrarCobroNfc(widget.usuario['correo'], tagId);
+
+      if (mounted) {
+        if (respuesta.containsKey('error')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(respuesta['error']), backgroundColor: Colors.red),
+          );
+        } else {
+          setState(() { _saldoActual = (respuesta['nuevoSaldo']).toDouble(); });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('¡Pago exitoso! Se descontaron \$${respuesta['tarifaCobrada']}'), backgroundColor: Colors.green),
+          );
+        }
+      }
+      },
+    );
+  }
+
   Future<List<String>> _obtenerUniversidades() async {
     try {
       final response = await http.get(Uri.parse('http://universities.hipolabs.com/search?country=Mexico'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        // .toSet().toList() limpia resultados duplicados que pueda mandar la API
         return data.map((e) => e['name'].toString()).toSet().toList();
       }
     } catch (e) {
       debugPrint('Error API Universidades: $e');
     }
-    return []; // Si falla el internet, regresa lista vacía
+    return []; 
   }
 
-  // Valida la estructura oficial de 18 caracteres de la CURP
   bool _esCurpValida(String curp) {
     RegExp regex = RegExp(
         r'^[A-Z]{1}[AEIOU]{1}[A-Z]{2}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|1[0-9]|2[0-9]|3[0-1])[HM]{1}(AS|BC|BS|CC|CS|CH|CL|CM|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)[B-DF-HJ-NP-TV-Z]{3}[0-9A-Z]{1}[0-9]{1}$');
@@ -191,11 +224,8 @@ Future<void> _mostrarFormularioEstudiante() async {
   @override
   void initState() {
     super.initState();
-    // Inicializamos con los datos reales de SQLite
-    _lectorPantallaActivo = true; // Por defecto siempre activo para invidentes
+    _lectorPantallaActivo = true; 
     _descuentoActivo = widget.usuario['descuentoActivo'] ?? false;
-
-    // Convertimos a double por si SQLite manda un entero cerrado
     _saldoActual = (widget.usuario['saldo'] ?? 0).toDouble();
   }
 
@@ -256,7 +286,6 @@ Future<void> _mostrarFormularioEstudiante() async {
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar Sesión',
             onPressed: () async {
-              // 1. Mostramos el diálogo y esperamos la respuesta (true o false)
               final confirmar = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -269,16 +298,14 @@ Future<void> _mostrarFormularioEstudiante() async {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () =>
-                          Navigator.pop(context, false), // Devuelve false
+                      onPressed: () => Navigator.pop(context, false), 
                       child: const Text('Cancelar'),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                       ),
-                      onPressed: () =>
-                          Navigator.pop(context, true), // Devuelve true
+                      onPressed: () => Navigator.pop(context, true), 
                       child: const Text(
                         'Salir',
                         style: TextStyle(color: Colors.white),
@@ -288,7 +315,6 @@ Future<void> _mostrarFormularioEstudiante() async {
                 ),
               );
 
-              // 2. Si el usuario presionó "Salir" (true), ejecutamos el cierre
               if (confirmar == true && context.mounted) {
                 Navigator.pushReplacement(
                   context,
@@ -315,7 +341,6 @@ Future<void> _mostrarFormularioEstudiante() async {
                       'Saldo Disponible',
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                    // Aquí se dibuja el saldo real de la base de datos
                     Text(
                       '\$${_saldoActual.toStringAsFixed(2)}',
                       style: const TextStyle(
@@ -326,10 +351,7 @@ Future<void> _mostrarFormularioEstudiante() async {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      icon: const Icon(
-                        Icons.account_balance_wallet,
-                        color: Colors.white,
-                      ),
+                      icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
                       label: const Text(
                         'Recargar Saldo',
                         style: TextStyle(color: Colors.white),
@@ -347,16 +369,23 @@ Future<void> _mostrarFormularioEstudiante() async {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Instrucciones NFC
-            const Center(
-              child: Icon(
-                Icons.contactless,
-                size: 80,
-                color: Color(0xFF09155B),
+            
+            // --- BOTÓN GIGANTE PARA PAGAR CON NFC ---
+            ElevatedButton.icon(
+              icon: const Icon(Icons.wifi_tethering, size: 40, color: Colors.white),
+              label: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text('PAGAR PASAJE CON NFC', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09155B),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: _iniciarEscaneoNFC,
             ),
             const SizedBox(height: 16),
+
+            // Instrucciones
             const Text(
               'Acerca tu teléfono a una etiqueta NFC para:\n\n• Identificar tu parada actual\n• Abordar y ver info del autobús\n• Pagar tu pasaje',
               textAlign: TextAlign.center,
@@ -379,14 +408,14 @@ Future<void> _mostrarFormularioEstudiante() async {
                   _lectorPantallaActivo = value;
                 });
               },
-            ), // Perfil de Descuento
+            ),
             _descuentoActivo
                 ? SwitchListTile(
                     title: const Text('Perfil con Descuento'),
                     subtitle: const Text('Verificado: 50% de descuento activo'),
                     value: true,
                     activeColor: Colors.green,
-                    onChanged: null, // Bloqueado, no se puede apagar
+                    onChanged: null, 
                   )
                 : ListTile(
                     title: const Text('¿Eres estudiante?'),

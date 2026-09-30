@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       final usuario = respuesta['usuario'];
       if (usuario['rol'] == 'Chofer') {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ChoferScreen()));
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChoferScreen(usuario: usuario)));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => UsuarioScreen(usuario: usuario)));
       }

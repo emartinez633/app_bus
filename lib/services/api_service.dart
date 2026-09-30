@@ -1,33 +1,32 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Reemplaza con la IP de tu computadora
+  // Reemplaza con tu URL de Ngrok
   final String _baseUrl = 'https://rephrase-velocity-viability.ngrok-free.dev/api';
 
-Future<Map<String, dynamic>> login(String correo, String password) async {
+  Future<Map<String, dynamic>> login(String correo, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/login'),
         headers: {
-          'Content-Type': 'application/json','ngrok-skip-browser-warning': 'true'},
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: jsonEncode({
           'correo': correo,
           'password': password,
         }),
       );
-      // ... (el resto del código se queda igual)
 
       if (response.statusCode == 200) {
-        // Login exitoso
         return jsonDecode(response.body); 
       } else {
-        // Error de credenciales o usuario no encontrado
         final errorData = jsonDecode(response.body);
         return {'error': errorData['error'] ?? 'Error desconocido'};
       }
     }  catch (e) {
-      // Ahora el SnackBar nos dirá el error técnico exacto
       return {'error': 'Falla de red: $e'}; 
     }
   }
@@ -112,27 +111,56 @@ Future<Map<String, dynamic>> login(String correo, String password) async {
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        // Extraemos los nombres, eliminamos duplicados con toSet() y volvemos a lista
         final List<String> universidades = data.map((u) => u['name'].toString()).toSet().toList();
-        universidades.sort(); // Las ordenamos alfabéticamente
+        universidades.sort(); 
         return universidades;
       }
     } catch (e) {
-      // Si el usuario no tiene internet en este momento o la API falla, mandamos un respaldo básico
       return ['Universidad de Colima', 'UNAM', 'IPN', 'Tecnológico de Monterrey'];
     }
     return [];
   }
 
-  // --- MÉTODO RESTAURADO PARA EL CHOFER ---
-  Future<bool> registrarCobroNfc(String tagId) async {
+  // --- MÉTODO PARA COBRO NFC ---
+  Future<Map<String, dynamic>> registrarCobroNfc(String correo, String tagId) async {
     try {
-      // Por ahora simularemos la respuesta para que la app compile y podamos probar el Login.
-      // Una vez que el Login funcione, conectaremos esto a una ruta real en Node.js
-      await Future.delayed(const Duration(milliseconds: 500));
-      return true; // Simulamos que el cobro fue exitoso
+      final response = await http.post(
+        Uri.parse('$_baseUrl/pagar-pasaje'),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' 
+        },
+        body: jsonEncode({
+          'correo': correo,
+          'tagId': tagId, 
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body); 
+      } else {
+        final errorData = jsonDecode(response.body);
+        return {'error': errorData['error'] ?? 'Error al cobrar pasaje'};
+      }
     } catch (e) {
-      return false;
+      return {'error': 'Falla de conexión: $e'};
     }
   }
-}
+
+  // --- MÉTODO PARA EL HISTORIAL DEL CHOFER (AHORA ADENTRO DE LA CLASE) ---
+  Future<List<dynamic>> obtenerHistorialChofer() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/historial-cobros'),
+        headers: {'ngrok-skip-browser-warning': 'true'}, 
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error obteniendo historial: $e');
+    }
+    return []; 
+  }
+
+} // <--- ESTA ES LA ÚNICA LLAVE QUE CIERRA LA CLASE AL FINAL

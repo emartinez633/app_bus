@@ -46,9 +46,9 @@ class SyncWorkerService {
         final tagId = viaje['tag_id'];
 
         // Reutilizamos el ApiService para enviar el cobro
-        bool exito = await _apiService.registrarCobroNfc(tagId);
+        final resultado = await _apiService.registrarCobroNfc(viaje['correo'], tagId);
 
-        if (exito) {
+        if (!resultado.containsKey('error')) {
           // 3. Si el servidor responde con éxito, lo eliminamos de la base de datos local
           await _dbOfflineService.eliminarViajeSincronizado(idLocal);
           print('Viaje $idLocal sincronizado y eliminado localmente.');
